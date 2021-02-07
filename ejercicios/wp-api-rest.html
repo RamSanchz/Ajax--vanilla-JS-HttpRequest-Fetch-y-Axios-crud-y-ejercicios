@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WordPress REST API</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    html {
+      box-sizing: border-box;
+      font-family: 'Raleway', sans-serif;
+      font-size: 16px;
+    }
+
+    *,
+    *::after,
+    *::before {
+      box-sizing: inherit;
+    }
+
+    a {
+      color: #01579b;
+      transition: all .3s ease-in-out;
+    }
+
+    a:hover {
+      opacity: .75;
+    }
+
+    img {
+      max-width: 100%;
+      margin: auto;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    hr {
+      border: thin solid #01579b;
+      margin: 3rem auto;
+      width: 80%;
+    }
+
+    .site {
+      margin: 1rem auto;
+      padding: 1rem;
+      max-width: 50%;
+      text-align: center;
+    }
+
+    .post {
+      margin: 1rem auto;
+      padding: 1rem;
+      border-radius: .5rem;
+      max-width: 80%;
+      text-align: center;
+      background-color: #eceff1;
+    }
+
+    .post-autor img {
+      border-radius: 50%;
+    }
+
+    .post-date small {
+      margin: 1rem auto;
+      display: block;
+    }
+
+    .post-excerpt,
+    .post-categories,
+    .post-tags,
+    .post-content {
+      text-align: left;
+    }
+
+    .post-content summary {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .post-content article {
+      padding: 1rem;
+      background-color: #e3f2fd;
+    }
+
+    .post-content img {
+      display: block;
+      margin: auto;
+    }
+
+    .loader {
+      display: none;
+      margin: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>WordPress REST API</h1>
+  <article id="site" class="site"></article>
+  <section id="posts" class="posts"></section>
+  <img class="loader" src="assets/loader.svg" alt="Cargando...">
+  <template id="post-template">
+    <article class="post">
+      <img class="post-image">
+      <aside>
+        <h2 class="post-title"></h2>
+        <figure class="post-autor"></figure>
+        <small class="post-date"></small>
+        <a class="post-link" target="_blank">Ver Publicación Original</a>
+        <p class="post-excerpt"></p>
+        <div class="post-categories"></div>
+        <div class="post-tags"></div>
+        <details class="post-content">
+          <!-- details es una etiqueta que nos permite embeber cdigo JS -->
+          <summary>Ver Contenido de la Publicación</summary><!-- es un elemento colapsable como un acordeon -->
+          <article></article>
+        </details>
+      </aside>
+    </article>
+    <hr>
+  </template>
+  <script>
+    const d = document,
+      w = window,
+      $site = d.getElementById("site"),
+      $posts = d.getElementById("posts"),
+      $loader = d.querySelector(".loader"),
+      $template = d.getElementById("post-template").content,
+      $fragment = d.createDocumentFragment(),
+      /* Renderizacion de la api WordPress */
+      DOMAIN = "https://malvestida.com",//url dominio
+      SITE = `${DOMAIN}/wp-json`,//url infor del sitio
+      API_WP = `${SITE}/wp/v2`,//url api Wordpress
+      POSTS = `${API_WP}/posts?_embed`,//url posts, ?_embed ?-> significa que recibira una variable, _embed es un atributo de wp el cual permite obtener info vinculada de los posts es decir mas detallada sobre autor, media, categorias y etiquetas, revisar la documenacion
+      PAGES = `${API_WP}/pages`,
+      CATEGORIES = `${API_WP}/categories`;
+
+    /* estas variables son para cuando se hace el scrol, wordpress api rest nos permite elegir en que pagina estar (page = 1 para que inicie en la 1) y de cuantos post va a mostrar por peticion (perpage = 5 mostrara de 5 en 5) , estas seran usadas en la peticion getpost */
+    let page = 1,
+      perPage = 5;
+
+    function getSiteData() {
+      fetch(SITE)
+        .then(res => res.ok ? res.json() : Promise.reject(res))
+        .then(json => {
+          // console.log(json);
+          $site.innerHTML = `
+          <h3>Sitio Web</h3>
+          <h2>
+          <a href="${json.url}"target="_blank">${json.name}</a>
+          </h2>
+          <p>${json.description}</p>
+          <p>${json.timezone_string}</p>
+          `;
+        })
+        .catch(err => {
+          console.log(err);
+          let message = err.statusText || "Ocurrio un error al consultar la info del sitio";
+          $site.innerHTML = `<p>Error ${err.status}: ${message}</p>`;
+        });
+    }
+
+    function getPosts() {
+      $loader.style.display = "block";
+      fetch(`${POSTS}&page=${page}&per_page=${perPage}`)
+        .then(res => res.ok ? res.json() : Promise.reject(res))
+        .then(json => {
+          // console.log(json);
+
+          json.forEach(el => {
+            let categories = "",
+              tags = "";
+            /* dentro de la ubicacion de las categorias y las tags hay un arreglo y para traerlas tenemos que recorrerlo para ir creando una li por cada uno de los atributos */
+            el._embedded["wp:term"][0].forEach(el => categories += `<li>${el.name}</li>`);
+            el._embedded["wp:term"][1].forEach(el => tags += `<li>${el.name}</li>`);
+
+            $template.querySelector(".post-title").innerHTML = el.title.rendered;
+            $template.querySelector(".post-image").src = el._embedded["wp:featuredmedia"][0].source_url ? el._embedded["wp:featuredmedia"][0].source_url : "";/* una imagen no me daba permiso de obtenerla por eso se uso esta validacion y como no se pudo acceder a travez del punto se uso la notacion de objeto ["wp:featuredmedia"]  */
+            $template.querySelector(".post-image").alt = el.title.rendered;
+            $template.querySelector(".post-autor").innerHTML = `
+            <img src="${el._embedded.author[0].avatar_urls["48"]}" alt="${el._embedded.author[0].name}">
+            <figcaption>${el._embedded.author[0].name}</figcaption>
+            `;
+            $template.querySelector(".post-date").innerHTML = new Date(el.date).toLocaleString(),
+              $template.querySelector(".post-link").href = el.link,
+              $template.querySelector(".post-excerpt").innerHTML =
+              el.excerpt.rendered.replace("[&hellip;]", "...");
+            $template.querySelector(".post-categories").innerHTML = `
+              <p>Categorias:</p>
+              <ul>${categories}</ul>
+              `;
+            $template.querySelector(".post-tags").innerHTML = `
+              <p>Etiquetas:</p>
+              <ul>${tags}</ul>
+              `;
+            $template.querySelector(".post-content > article").innerHTML = el.content.rendered;
+
+            let $clone = d.importNode($template, true);
+            $fragment.appendChild($clone);
+          });
+          $posts.appendChild($fragment);
+          $loader.style.display = "none";
+        })
+        .catch(err => {
+          console.log(err);
+          let message = err.statusText || "Ocurrio un error al consultar la info del sitio";
+          $posts.innerHTML = `<p>Error ${err.status}: ${message}</p>`;
+          $loader.style.display = "none";
+        });
+    }
+
+    d.addEventListener("DOMContentLoaded", e => {
+      getSiteData();
+      getPosts();
+    });
+
+    w.addEventListener("scroll", e => {
+      /* para hacer el scroll infinito se debe de agregar el evento scroll al window, a travez de la destructuracion del la etiqueta HTML obtenemos estos 3 propiedades que son las que usaremos para poder realizarlo scrollTop-> hace referencia a cuanto me voy alejando del top, clientHeight->cual es la altura del viwport, scrollHeight-> el total que se tiene de distancia de scroll en el vp*/
+      const { scrollTop, clientHeight, scrollHeight } = d.documentElement;
+      // console.log(scrollTop,clientHeight,scrollHeight);
+
+      /* si la altura de mi vp+ lo que me voy despegand del top es mayor o igual al alto que tiene en total mi scroll de la pantalla es cuando podre cargar mas posts */
+      if ((scrollTop + clientHeight) >= scrollHeight) {
+        // console.log("cargar mas posts");
+        page++;//aqui antes de llamar de nuevo a la funcion getPost cuando se cumpla el scroll debemos indicar que la pagina que cargara ahora sera la 2 y luego la 3... con esto se consigue el scroll infinito
+        getPosts();
+      }
+    });
+
+  </script>
+</body>
+
+</html>

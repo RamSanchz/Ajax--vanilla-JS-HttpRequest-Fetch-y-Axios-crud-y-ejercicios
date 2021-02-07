@@ -1,0 +1,58 @@
+html {
+  box-sizing: border-box; /* para que el tamaño de las cajas empiecen desde el borde */
+  font-family: sans-serif;
+  font-size: 16px;
+}
+
+/* todos los elementos generados antes y despues se les hereda el box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
+main {
+  flex-grow: 1; /* para que ocupe el espacio sobrante y asi empuje nuestro footer hasta abajo */
+}
+.container {
+  margin: 0 auto;
+  max-width: 992px;
+}
+
+/* Header */
+.header {
+  padding: 0.5rem;
+  background-color: antiquewhite;
+}
+.header-content {
+  display: flex; /* el display por defecto de flexbox es en fila */
+  justify-content: space-between;
+  align-items: center; /* cuando displey flex es fila este es el eje Y, y cuando es columna se convierte en X */
+}
+.logo img {
+  width: 3rem;
+  height: auto;
+}
+.menu {
+  display: flex;
+  justify-content: space-between;
+  font-size: 115%;
+}
+.menu a {
+  color: chocolate;
+  padding: 0 1vh;
+  transition: all 0.3s ease-in-out;
+}
+.menu a:hover {
+  opacity: 0.75;
+}
+

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uploader Drag and Drop con AJAX</title>
+  <style>
+    html {
+      box-sizing: border-box;
+      /* para que el tamaño de las cajas empiecen desde el borde */
+      font-family: sans-serif;
+      font-size: 16px;
+    }
+
+    /* todos los elementos generados antes y despues se les hereda el box-sizing */
+    *,
+    *::before,
+    *::after {
+      box-sizing: inherit;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    body {
+      margin: 0;
+    }
+
+    progress {
+      margin-top: 1rem !important;
+    }
+
+    .drop-zone {
+      margin: 0 auto;
+      border: thin dotted #000;
+      width: 80%;
+      height: 40vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    /* animacion que se colocara cuando se coloquen archivos dentro de el article drag - drop */
+    .drop-zone.is-active {
+      border: thick dashed #000;
+      background-color: rgba(0, 128, 0, .5);
+      animation: pulse 1.5s infinite;
+      /* pusel es el nombre de la animacion que se llamar, que va a durar 1.5s y va a ser infinita */
+      animation-timing-function: linear;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.1);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+
+
+    <article class="drop-zone">
+      <p>Arrastra y suelta tus archivos...</p>
+    </article>
+
+
+    <!-- <progress style="margin-top: 1rem;" value="70" max="100"></progress> -->
+    <!-- tenemos una etiqueta HTML que nos da por defecto una barra de progreso, value el valor actual y max hasta que numero subira -->
+    <!-- 70%-nombre_archivo.txt -->
+    <!-- <progress style="margin-top: 1rem;" value="70" max="100"></progress> -->
+    <!-- tenemos una etiqueta HTML que nos da por defecto una barra de progreso, value el valor actual y max hasta que numero subira -->
+    <!-- 70%-nombre_archivo.txt -->
+  </main>
+
+  <script>
+    const d = document,
+      $main = d.querySelector("main"),
+      $dropZone = d.querySelector(".drop-zone")
+
+
+    /* funcion para subir archivos mediante AJAX a travex de php */
+    const uploader = (file) => {
+      // console.log(file);
+      const xhr = new XMLHttpRequest(),
+        formData = new FormData();/* formData() sirve para simular un envio parseado de un formulario, es como si se creara un formulario (recibe como parametro un forulario)*/
+
+      formData.append("file", file);/*sirve para gregarle una variable "file,que es como el atributo name de cada formulario", (nombre, informacion) */
+      xhr.addEventListener("readystatechange", e => {
+
+        if (xhr.readyState !== 4) return;
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+
+          let json = JSON.parse(xhr.responseText);
+          // console.log(json);
+        } else {
+          let message = xhr.statusText || "Ocurrio un Error";
+          console.error(`Error ${xhr.status}: ${message}`);
+        }
+
+      });
+
+      xhr.open("POST", "assets/uploader.php");/* la url seria un archivo php donde estara la programacion de los archivos al servidor */
+      xhr.setRequestHeader("enc-type", "multipart/form-data");/* esta cabecera es para que a parte de que detecte que a parte de variables textuales que pueda recibir de elementos del formulario se le estan mandando archivos binarios"enc-type" */
+      xhr.send(formData);//vamos a mandar lo que viene en nuestro formData
+    }
+
+    /* funcion de la barra de progreso */
+    const progressUpload = (file) => {
+      const $progress = d.createElement("progress"),
+        $span = d.createElement("span");
+      /* agregamos los valores de la barra */
+      $progress.value = 0;
+      $progress.max = 100;
+
+
+      $main.insertAdjacentElement("beforeend", $progress);
+      $main.insertAdjacentElement("beforeend", $span);
+
+      const fileReader = new FileReader();/* fileReader es una api de js que permite detectar los bits que van cargados para asi poder hacer el calculo de porcentajes de cada archivo */
+      fileReader.readAsDataURL(file);/* debemos indicarle como leera el archivo que vamos a analizar */
+
+
+      /* fileReader tiene varios eventos pero en esta ocacion se usaran estos 2, no se pueden delegar ya que son exclusivos de este objeto */
+      /* Mientras se vaya subiendo que hara */
+      fileReader.addEventListener("progress", e => {
+        // console.log(e);
+        /* el evento progress tiene 2 datos que nos serviran para llenar la barra, loaded- lo que va cargando y total- el peso del archivo */
+        let progress = parseInt((e.loaded * 100) / e.total);
+        $progress.value = progress;
+        $span.innerHTML = `<b>${file.name} - ${progress}%</b>`;
+
+      });
+      /* cuando se termine de subir que hara */
+      fileReader.addEventListener("loadend", e => {
+        uploader(file);/* cuando se termine de subir el archivo se llama la funcion uploader que envia el archivo a nuestro servidor */
+        setTimeout(() => {
+          /* lipiamos la interfaz y el input */
+          $main.removeChild($progress);
+          $main.removeChild($span);
+        }, 5000);
+      });
+    }
+
+    /* podemos dotarle las caracteristicas de drag and drop a cualquien elemento del html
+    y no haremos delegacion de eventos por que solo tenemos 1 elemento que la tendra en este caso */
+
+    //dragover es el evento que se ejecuta mientras tu arrastres archivos sobre la zona que se destino para dicho evento
+    $dropZone.addEventListener("dragover", e => {
+      // console.log(e);
+      e.preventDefault();
+      e.stopPropagation();//este evento tiene propagacion asi que se lo desactivamos
+      e.target.classList.add("is-active");
+    });
+    //dragleave es el evento que se desencadenara cuando tu sales de la zona que es drag and drop
+    $dropZone.addEventListener("dragleave", e => {
+      // console.log(e);
+      e.preventDefault();
+      e.stopPropagation();
+      e.target.classList.remove("is-active");
+    });
+    //drop es el evento cuando tu sueltas el archivo
+    $dropZone.addEventListener("drop", e => {
+      // console.log(e);
+      e.preventDefault();
+      e.stopPropagation();
+
+      /* el evento drop nos devuelve un objeto con el valor dataTransfer y dentro de este esta el atributo files que guarda los archivos que se sueltan, como no es un arreglo se le aplico un array.from para poder usar los metodos de iteracion de los arreglos */
+      const files = Array.from(e.dataTransfer.files);
+      files.forEach(el => progressUpload(el));
+      e.target.classList.remove("is-active");
+
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRUD API REST FECTH</title>
+</head>
+
+<body>
+  <H1>CRUD API REST FETCH</H1>
+  <section id="crud">
+    <article>
+      <h2 class="crud-title">Agregar Santo</h2>
+      <form class="crud-form">
+        <input type="text" name="nombre" placeholder="Nombre" required>
+        <br>
+        <input type="text" name="constelacion" placeholder="Constelación" required>
+        <br>
+        <input type="submit" value="Enviar">
+        <input type="hidden" name="id">
+        <!-- se coloco oculto por que lo ocuparemos para mandar algo cuando se envie el Form -->
+      </form>
+    </article>
+    <article>
+      <h2>Ver Santos</h2>
+      <table class="crud-table">
+        <thead>
+          <!--thead- es el head de la tabla, tr- columnas de las tablas, th-  filas de las tablas o celdas-->
+          <tr>
+            <th>Nombre</th>
+            <th>Constelación</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </article>
+  </section>
+
+  <!-- las template son como moldes html que defines para utilizarlos las veces que quieras y solo se definen una vez la maquetacion, van al final del body -->
+  <template id="crud-template">
+    <tr>
+      <td class="name"></td>
+      <td class="constellation"></td>
+      <td>
+        <button class="edit">Editar</button>
+        <button class="delete">Eliminar</button>
+      </td>
+    </tr>
+  </template>
+
+  <script>
+    const d = document,
+      $table = d.querySelector(".crud-table"),//tabla
+      $form = d.querySelector(".crud-form"),//formulario
+      $title = d.querySelector(".crud-title"),//titulo-tabla
+      $template = d.getElementById("crud-template").content,/* cuando se trabaja con templates lo importante no es su estructura sino su contenido por eso accedemos al contenido de este  */
+      $fragment = d.createDocumentFragment();//fragmento 
+
+    //GET - READ
+    const getAll = async () => {
+      try {
+        //peticion FETCH
+        let res = await fetch("http://localhost:5555/santos"),
+          // Conversion de respuesta de JSON a JS
+          json = await res.json();
+
+        if (!res.ok) throw { status: res.status, statusText: res.statusText };//validacion para manejar el error
+
+        // console.log(json);
+        // console.log(res);
+
+        //manejo del DOM
+        json.forEach(el => {
+          $template.querySelector(".name").textContent = el.nombre;
+          $template.querySelector(".constellation").textContent = el.constelacion;
+
+          //agregamos los data-attributes a los botones
+          $template.querySelector(".edit").dataset.id = el.id;
+          $template.querySelector(".edit").dataset.name = el.nombre;
+          $template.querySelector(".edit").dataset.constellation = el.constelacion;
+          $template.querySelector(".delete").dataset.id = el.id;
+
+          //vamos agregando cada elemento al fragmento
+          let $clone = d.importNode($template, true);
+          $fragment.appendChild($clone);
+
+        });
+        //agregamos el fragmento al DOM
+        $table.querySelector("tbody").appendChild($fragment);
+
+      } catch (err) {
+        let message = err.statusText || "Ocurrio un Error.";
+        $table.insertAdjacentHTML("afterend", `<p><b>Error ${err.status}: ${message}</b></p>`);
+      }
+    }
+
+
+
+
+    d.addEventListener("DOMContentLoaded", getAll);
+
+    //la funcion que desate el evento tambien debera ser asincrona ya que mandara una solicitud a una api
+    d.addEventListener("submit", async e => {
+      if (e.target === $form) {
+        e.preventDefault();//desactivamos el comportamiento defaul del formulario para procesarlo mediante AJAX-FETCH
+
+        //si no viene nada en el elemento que desato el evento en su elemento id que es nuestro input hidden
+        if (!e.target.id.value) {
+          //POST - CREATE
+          try {
+            let options = {
+              method: "POST",//metodo
+              headers: {//fetch tiene un atributo headers que guarda las cabeceras  o formato en el que sera enviada nuestra info
+                "content-type": "application/json ; charset=utf-8"
+              },
+              body: JSON.stringify({//tambien tiene uno llamado body que es donde se convierte a formato JSON y se dan los valores a enviar
+                nombre: e.target.nombre.value,
+                constelacion: e.target.constelacion.value,
+              })
+            }
+            //Peticion FETCH
+            let res = await fetch("http://localhost:5555/santos", options),// options seria como la configuracion de la peticion FETCH
+              // Conversion de respuesta de JSON a JS
+              json = await res.json();
+
+            if (!res.ok) throw { status: res.status, statusText: res.statusText };//validacion para manejar el error
+            //recargamos la pagina
+            location.reload();
+
+          } catch (err) {
+            let message = err.statusText || "Ocurrio un Error.";
+            $form.insertAdjacentHTML("afterend", `<p><b>Error ${err.status}: ${message}</b></p>`);
+          }
+        } else {
+          //PUT - UPDATE
+          try {
+            let options = {
+              method: "PUT",//metodo
+              headers: {//fetch tiene un atributo headers que guarda las cabeceras  o formato en el que sera enviada nuestra info
+                "content-type": "application/json ; charset=utf-8"
+              },
+              body: JSON.stringify({//tambien tiene uno llamado body que es donde se convierte a formato JSON y se dan los valores a enviar
+                nombre: e.target.nombre.value,
+                constelacion: e.target.constelacion.value,
+              })
+            }
+            //Peticion FETCH
+            let res = await fetch(`http://localhost:5555/santos/${e.target.id.value}`, options),// options seria como la configuracion de la peticion FETCH
+              // Conversion de respuesta de JSON a JS
+              json = await res.json();
+
+            if (!res.ok) throw { status: res.status, statusText: res.statusText };//validacion para manejar el error
+            //recargamos la pagina
+            location.reload();
+
+          } catch (err) {
+            let message = err.statusText || "Ocurrio un Error.";
+            $form.insertAdjacentHTML("afterend", `<p><b>Error ${err.status}: ${message}</b></p>`);
+          }
+        }
+      }
+    });
+
+    //la funcion debe ser sincrona ya que haremos peticiones a la api y usaremos await
+    d.addEventListener("click", async e => {
+      if (e.target.matches(".edit")) {
+        // alert("Presionaste el boton editar");
+        $title.textContent = "Editar Santo";
+        $form.nombre.value = e.target.dataset.name;
+        $form.constelacion.value = e.target.dataset.constellation;
+        $form.id.value = e.target.dataset.id;
+      }
+      if (e.target.matches(".delete")) {
+        let isDelete = confirm(`¿Estas seguro de eliminar el ID: ${e.target.dataset.id}?`);
+
+        if (isDelete) {
+          //DELETE-DELETE
+          try {
+            let options = {
+              method: "DELETE",//metodo
+              headers: {//fetch tiene un atributo headers que guarda las cabeceras  o formato en el que sera enviada nuestra info
+                "content-type": "application/json ; charset=utf-8"
+              }
+            }
+            //Peticion FETCH                                    hacemos refrencia al id del data-attributo que guardamos
+            let res = await fetch(`http://localhost:5555/santos/${e.target.dataset.id}`, options),// options seria como la configuracion de la peticion FETCH
+              // Conversion de respuesta de JSON a JS
+              json = await res.json();
+
+            if (!res.ok) throw { status: res.status, statusText: res.statusText };//validacion para manejar el error
+            //recargamos la pagina
+            location.reload();
+
+          } catch (err) {
+            let message = err.statusText || "Ocurrio un Error.";
+            alert(`Error ${err.status}: ${message}`);
+          }
+        }
+      }
+    });
+
+
+
+  </script>
+</body>
+
+</html>

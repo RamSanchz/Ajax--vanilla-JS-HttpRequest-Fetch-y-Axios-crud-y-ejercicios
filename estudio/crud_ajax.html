@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRUD API REST AJAX</title>
+</head>
+
+<body>
+  <H1>CRUD API REST AJAX</H1>
+  <section id="crud">
+    <article>
+      <h2 class="crud-title">Agregar Santo</h2>
+      <form class="crud-form">
+        <input type="text" name="nombre" placeholder="Nombre" required>
+        <br>
+        <input type="text" name="constelacion" placeholder="Constelación" required>
+        <br>
+        <input type="submit" value="Enviar">
+        <input type="hidden" name="id">
+        <!-- se coloco oculto por que lo ocuparemos para mandar algo cuando se envie el Form -->
+      </form>
+    </article>
+    <article>
+      <h2>Ver Santos</h2>
+      <table class="crud-table">
+        <thead>
+          <!--thead- es el head de la tabla, tr- columnas de las tablas, th-  filas de las tablas o celdas-->
+          <tr>
+            <th>Nombre</th>
+            <th>Constelación</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </article>
+  </section>
+
+  <!-- las template son como moldes html que defines para utilizarlos las veces que quieras y solo se definen una vez la maquetacion, van al final del body -->
+  <template id="crud-template">
+    <tr>
+      <td class="name">Seiya</td>
+      <td class="constellation">Pegaso</td>
+      <td>
+        <button class="edit">Editar</button>
+        <button class="delete">Eliminar</button>
+      </td>
+    </tr>
+  </template>
+
+  <script>
+    const d = document,
+      $table = d.querySelector(".crud-table"),
+      $form = d.querySelector(".crud-form"),
+      $title = d.querySelector(".crud-title"),
+      $template = d.getElementById("crud-template").content,
+      /* cuando se trabaja con templates lo importante no es su estructura sino su contenido por eso accedemos al contenido de este  */
+      $fragment = d.createDocumentFragment();
+
+
+    /* se crea una funcion para evitarnos estar escribiendo 4 veces el codigo ya que se tiene que hacer para cada funcion, a esta funcion le pasaremos los parametros necesarios para que efectue cada una de las funciones que requerimos  esta es nuestra peticion AJAX*/
+    const ajax = (options) => {
+      let { url, method, success, error, data } = options;//destructuramos para obtener los valores que requeriremos
+
+      const xhr = new XMLHttpRequest();// en ajax solo se debe hacer la instancia del objeto XMLHTTPRequest
+
+      //agregamos el evento a la instancia de ajax
+      xhr.addEventListener("readystatechange", e => {
+        if (xhr.readyState !== 4) return;
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          let json = JSON.parse(xhr.responseText);
+          success(json);
+        } else {
+          let message = xhr.statusText || "Ocurrió un error";
+          error(`Error ${xhr.status}: ${message}`);
+        }
+      });
+
+      xhr.open(method || "GET", url);// el tercer paso es abrirl la ejecucion
+      xhr.setRequestHeader("Content-type", "application/json; charset=utf-8");// cuando se hacen peticiones PUT, POST tenemos que agregar cabeceras(que seria el formato y tipo de contentido que estaremos enviando) por cada cabecerra que se necesite se debe colocar el atributo y el valor... setRequestHeader(atributo, valor) al final codificamos que el formato sea UTF-8
+
+      //enviamos la informacion pero antes hacemos una conversion de la info ya que la api espera recibir un formato string y le estaresmos mandando un objeto, solo en el POST y el PUT ya que el get se puede ir null por que solo consulta
+      xhr.send(JSON.stringify(data));
+    }
+
+
+    //GET
+    const getAll = () => {
+      //dentro de esta funcion se ejecutara ajax nuestra funcion de peticion y le pasaremos los parametros
+      ajax({
+        method: "GET",
+        url: "http://localhost:5555/santos",
+        success: (res) => {
+          console.log(res);
+          res.forEach(el => {
+            $template.querySelector(".name").textContent = el.nombre;
+            $template.querySelector(".constellation").textContent = el.constelacion;
+
+            //dentro de los botones crearemos data atributos que nos permitan almacenar los valores que tienen los inputs en ese momento para posteriormente usarlos de a cuerdo a cada funcion de los botones, estos data atributos se quedaran guardados dentro de cada boton de daca uno de los personajes
+            $template.querySelector(".edit").dataset.id = el.id;
+            $template.querySelector(".edit").dataset.name = el.nombre;
+            $template.querySelector(".edit").dataset.constellation = el.constelacion;
+            $template.querySelector(".delete").dataset.id = el.id;
+
+            let $clone = d.importNode($template, true);// se debe clonar la template para poder usarla muchas veces de lo contrario no funciona(d.importnode(lo que se clona, true-con contenido o false- vacio))
+            $fragment.appendChild($clone);
+          });
+
+          $table.querySelector("tbody").appendChild($fragment);
+
+        },//success recibe como parametro la respuesta de la peticion ajax ya parseada a js 
+        error: (err) => {
+          console.log(err);
+          $table.insertAdjacentHTML("afterend", `<p><b>${err}</b></p>`);
+        },// err recibe como parametro el error
+        data: null
+      });
+    }
+
+
+
+
+    //agregamos la funcion que mostrara todos los santos al en la tabla, getAll es una funcion que nos permitira pasar las opciones
+    d.addEventListener("DOMContentLoaded", getAll);
+
+    d.addEventListener("submit", e => {
+      if (e.target === $form) {
+        e.preventDefault();// se detiene el comportamiento po default ya que el procesaiento se hace a travez de AJAX
+
+        /* tomaremos como referencia el input oculto para seleccionar el tipo de peticion que hara , si esta vacio es un post y si tiene valor sera un put */
+        if (!e.target.id.value) {
+          //Create-POST
+          ajax({
+            url: "http://localhost:5555/santos",
+            method: "POST",
+            success: (res) => location.reload(),
+            error: (err) => $form.insertAdjacentHTML("afterend", `<p><b>${err}</b></p>`),
+            data: {
+              nombre: e.target.nombre.value,
+              constelacion: e.target.constelacion.value
+            }
+          });
+        } else {
+          //Update-PUT
+          ajax({
+            url: `http://localhost:5555/santos/${e.target.id.value}`,
+            method: "PUT",
+            success: (res) => location.reload(),
+            error: (err) => $form.insertAdjacentHTML("afterend", `<p><b>${err}</b></p>`),
+            data: {
+              nombre: e.target.nombre.value,
+              constelacion: e.target.constelacion.value
+            }
+          });
+        }
+      }
+    });
+
+    d.addEventListener("click", e => {
+      if (e.target.matches(".edit")) {
+        // alert("Presionaste el boton editar");
+        $title.textContent = "Editar Santo";
+        $form.nombre.value = e.target.dataset.name;
+        $form.constelacion.value = e.target.dataset.constellation;
+        $form.id.value = e.target.dataset.id;
+      }
+      if (e.target.matches(".delete")) {
+        let isDelete = confirm(`¿Estas seguro de eliminar el ID: ${e.target.dataset.id}?`);
+
+        if (isDelete) {
+          //Delete-DELETE
+          ajax({
+            url: `http://localhost:5555/santos/${e.target.dataset.id}`,
+            method: "DELETE",
+            success: (res) => location.reload(),
+            error: (err) => alert(err),
+            //la peticion delete no necesita data
+          });
+        }
+      }
+    });
+
+    /* JSON.parse()-- convierte de formato JSON a JS
+       JSON.stringify()-- convierte de JS a JSON */
+
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    .grid-fluid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+
+    .loader {
+      display: block;
+      margin: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Buscador de Shows de TV</h1>
+  <input type="search" id="search" placeholder="Buscar Shows de TV..." autocomplete="off">
+  <section id="shows" class="grid-fluid"></section>
+  <!-- tempplate de Show -->
+  <template id="show-template">
+    <article class="show">
+      <h3></h3>
+      <div></div>
+      <img>
+      <a></a>
+    </article>
+  </template>
+  <script>
+    const d = document,
+      $shows = d.getElementById("shows"),
+      $template = d.getElementById("show-template").content,
+      $fragment = d.createDocumentFragment();
+
+    d.addEventListener("keypress", async e => {
+      if (e.target.matches("#search")) {
+        // esta validacion es para que solo cuando se preciona el enter haga la peticion
+        if (e.key === "Enter") {
+          try {
+            $shows.innerHTML = `<img class ="loader" src="assets/loader.svg" alt="Cargando...">`;
+
+            let query = e.target.value.toLowerCase(),/* la documentacion pide que sea en minusculas */
+              api = `http://api.tvmaze.com/search/shows?q=${query}`,
+              res = await fetch(api),
+              json = await res.json();
+            console.log(api, res, json);
+
+            if (!res.ok) throw { status: res.status, statusText: res.statusText };
+
+            if (json.length === 0) {
+              $shows.innerHTML = `<h2>No existen resultados de shows para el criterio de busqueda: <mark>${query}</mark></h2>`
+            } else {
+              json.forEach(el => {
+                $template.querySelector("h3").textContent = el.show.name;
+                $template.querySelector("div").innerHTML = el.show.summary ? el.show.summary
+                  : "Sin Descripción";/* como algunos de los show pueden no tener , validamos que si la tiene la ponga, sino ponga un mensaje */
+                $template.querySelector("img").src = el.show.image ? el.show.image.medium
+                  : "http://static.tvmaze.com/images/no-img/no-img-portrait-text.png";/* esta validacion se hace ya que puede haber shows que no tengan la imagen por lo tanto cuando no la tengan la api da una que se puede colocar por defecto */
+                $template.querySelector("img").alt = el.show.name;
+                $template.querySelector("img").style.maxWidth = "100%";
+                $template.querySelector("a").href = el.show.url ? el.show.url : "#";
+                $template.querySelector("a").target = el.show.url ? "_blank" : "_self";
+                $template.querySelector("a").textContent = el.show.url ? "Ver más..." : "";
+
+                let $clone = d.importNode($template, true);
+                $fragment.appendChild($clone);
+              });
+              $shows.innerHTML = "";
+              $shows.appendChild($fragment);
+            }
+
+          } catch (err) {
+            console.log(err);
+            let message = err.statusText || "Ocurrió un error al conectar con la API";
+            $shows.innerHTML = `<p>Error ${err.status}: ${message}</p>`;
+          }
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>
